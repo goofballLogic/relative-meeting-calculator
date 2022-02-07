@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport" content="width=device-width">
+    <title>Relative meeting cost calculator</title>
+    <style>
+        * {
+            font-family: Arial;
+            box-sizing: border-box;
+        }
+
+        body {
+            --gap-large: 20px;
+            --gap-normal: 10px;
+            --green: #84C040;
+            --amber: #FF9E17;
+            --red: #E2231A;
+            margin: 0;
+            min-height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+        }
+
+        main {
+            display: grid;
+            height: 100vh;
+            grid-template-rows: auto 1fr 3em;
+            max-width: 1000px;
+        }
+
+        main > * {
+            padding: var(--gap-large);
+        }
+
+        @media (min-width: 500px) {
+            main {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 3em;
+            }
+        }
+
+        form {
+            flex: 1;
+        }
+
+        form:not(.error) .error {
+            visibility: hidden;
+        }
+
+        form .error {
+            height: 2em;
+            line-height: 2em;
+            padding: 0 var(--gap-normal);
+            margin: var(--gap-normal);
+            border-bottom: solid 2px var(--red);
+        }
+
+        input[type=number] {
+            height: 3em;
+            padding: 0 1em;
+        }
+
+        button {
+            width: 3em;
+            height: 3em;
+        }
+
+        .radio-list-container {
+            display: flex;
+        }
+
+        .radio-list-container label {
+            flex: 1;
+            margin: 5px;
+        }
+
+        .radio-list-container input {
+            position: absolute;
+            margin-left: -1000px;
+        }
+
+        .radio-list-container .label-text {
+            display: flex;
+            background: #EEE;
+            padding: 10px;
+            height: 100%;
+            border-radius: var(--gap-normal);
+            text-align: center;
+            align-items: center;
+        }
+
+        .radio-list-container input:checked+.label-text {
+            background-color: #AAA;
+            color: white;
+        }
+
+        .results {
+            display: grid;
+            grid-template-rows: 1fr 1fr 1fr;
+            position: relative;
+            max-height: 500px;
+        }
+
+        .results .pointer {
+            transition: linear 0.3s all;
+            position: absolute;
+            margin-left: calc(var(--gap-normal)*0.5);
+            display: none;
+            background-color: black;
+            clip-path: polygon(0 0, 68% 0, 100% 50%, 68% 100%, 0 100%);
+        }
+
+        .results .pointer-inner {
+            transition: linear 0.3s all;
+            display: block;
+            clip-path: polygon(0 0, 68% 0, 100% 50%, 68% 100%, 0 100%);
+            padding: var(--gap-normal);
+            min-width: 3em;
+            margin: 2px;
+        }
+
+        .results .pointer .classification {
+            display: none;
+        }
+
+        .results .category {
+            border-bottom: solid 1px silver;
+            grid-column-start: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            border-left: solid var(--gap-large) transparent;
+            margin-left: var(--gap-large);
+        }
+
+        .results.ok .pointer,
+        .results.expensive .pointer,
+        .results.very-expensive .pointer
+         {
+            display: initial;
+
+        }
+        .results.ok .pointer-inner {
+            background-color: var(--green);
+        }
+
+        .results.expensive .pointer-inner {
+            background-color: var(--amber);
+        }
+
+        .results.very-expensive .pointer-inner {
+            background-color: var(--red);
+        }
+
+        .results .category .description {
+            grid-row-start: 1;
+            grid-row-end: 3;
+            padding: var(--gap-large);
+            display: flex;
+            align-items: center;
+            gap: var(--gap-large);
+        }
+
+        .results .category .frequency {
+            align-self: end;
+        }
+
+        .results .category .reason {
+            grid-row-start: 2;
+            grid-column-start: 2;
+        }
+
+        .results .category.ok {
+            --background-color: #d8efbd;
+            border-left-color: var(--green);
+        }
+
+        .results .category.expensive {
+            --background-color: #FF9E1733;
+            border-left-color: var(--amber);
+        }
+
+        .results .category.very-expensive {
+            --background-color: #E2231A33;
+            border-left-color: var(--red);
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+
+        <form>
+
+            <h2>How many people?</h2>
+            <input type="number" required name="participants" step="1" min="2" />
+            <button class="add" type="button">+</button>
+            <button class="subtract" type="button">-</button>
+
+            <h2>Length of meeting</h2>
+            <div class="radio-list-container">
+                <label>
+                    <input required type="radio" name="length" value="1" />
+                    <span class="label-text">30 minutes (or less)</span>
+                </label>
+                <label>
+                    <input required type="radio" name="length" value="2" />
+                    <span class="label-text">30 - 60 minutes</span>
+                </label>
+                <label>
+                    <input required type="radio" name="length" value="4" />
+                    <span class="label-text">1 - 3 hours</span>
+                </label>
+                <label>
+                    <input required type="radio" name="length" value="8" />
+                    <span class="label-text">More than 3 hours</span>
+                </label>
+            </div>
+
+            <aside class="error"></aside>
+
+        </form>
+        <div class="results">
+
+            <div class="pointer">
+                <div class="pointer-inner">
+                    <span class="cost"></span>
+                    <span class="classification"></span>
+                </div>
+            </div>
+            <div class="category ok">
+                <span class="description">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" version="1.1"
+                        viewBox="0 0 1200 1200">
+                        <path
+                            d="m448.8 1098c-19.199 0-37.199-7.1992-50.398-20.398l-314.4-324c-30-27.602-31.199-74.398-2.3984-104.4 27.602-30 74.398-31.199 104.4-2.3984l230.4 164.4c13.199 12 33.602 9.6016 44.398-4.8008l546-674.4c24-32.398 70.801-39.602 103.2-14.398 32.398 24 39.602 70.801 14.398 103.2l-616.8 847.2c-13.199 16.801-32.398 27.602-52.801 28.801-2.4023 1.1992-3.6016 1.1992-6 1.1992z"
+                            fill="#95d600" />
+                    </svg>
+                    Ok
+                </span>
+                <span class="frequency"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" version="1.1"
+                        viewBox="0 0 1200 1200">
+                        <g fill="#828282">
+                            <path
+                                d="m311.48 307.89c77.207-76.652 181.68-119.52 290.48-119.19s213.01 43.832 289.75 120.95c76.738 77.121 119.73 181.55 119.52 290.34h178.71c0.17578-156.17-61.652-306.03-171.9-416.64-110.25-110.61-259.9-172.93-416.07-173.27-156.18-0.33203-306.09 61.348-416.81 171.48l-135.64-135.64v409.09h409.09z" />
+                            <path
+                                d="m892.11 889.23c-57.125 57.848-130.14 97.43-209.78 113.73-79.648 16.305-162.34 8.5898-237.6-22.156-75.258-30.75-139.7-83.152-185.14-150.56-45.441-67.414-69.844-146.8-70.117-228.1h-178.71c0.58203 155.84 62.875 305.11 173.25 415.12 110.37 110.02 259.84 171.84 415.68 171.91 155.84 0.078125 305.37-61.582 415.86-171.49l132.77 130.62v-400.48h-396.89z" />
+                        </g>
+                    </svg>
+                    Daily</span>
+                <span class="reason">As needed</span>
+            </div>
+            <div class="category expensive">
+                <span class="description">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" version="1.1"
+                        viewBox="0 0 1200 1200">
+                        <path
+                            d="m1136.4 979.2-477.6-826.8c-26.398-45.602-92.398-45.602-118.8 0l-477.6 826.8c-26.398 45.602 6 103.2 58.801 103.2h955.2c54.004 0 86.406-57.598 60.004-103.2zm-552-573.6c28.801-7.1992 57.602 7.1992 70.801 33.602 4.8008 9.6016 6 20.398 4.8008 30-2.3984 30-3.6016 60-4.8008 91.199-2.3984 46.801-6 94.801-8.3984 141.6-1.1992 14.398-1.1992 28.801-2.3984 44.398-1.1992 25.199-20.398 44.398-45.602 44.398-24 0-44.398-19.199-45.602-43.199-3.6016-73.199-8.3984-146.4-12-219.6-1.1992-19.199-2.3984-39.602-3.6016-58.801 0.003906-28.801 19.203-56.398 46.801-63.598zm15.602 549.6c-33.602 0-60-27.602-60-61.199 0-33.602 27.602-61.199 61.199-61.199 33.602 0 60 27.602 60 62.398-1.1992 32.402-28.801 60-61.199 60z"
+                            fill="#ff9d17" />
+                    </svg>
+                    Expensive
+                </span>
+                <span class="frequency">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" version="1.1"
+                        viewBox="0 0 1200 1200">
+                        <g fill="#828282">
+                            <path
+                                d="m311.48 307.89c77.207-76.652 181.68-119.52 290.48-119.19s213.01 43.832 289.75 120.95c76.738 77.121 119.73 181.55 119.52 290.34h178.71c0.17578-156.17-61.652-306.03-171.9-416.64-110.25-110.61-259.9-172.93-416.07-173.27-156.18-0.33203-306.09 61.348-416.81 171.48l-135.64-135.64v409.09h409.09z" />
+                            <path
+                                d="m892.11 889.23c-57.125 57.848-130.14 97.43-209.78 113.73-79.648 16.305-162.34 8.5898-237.6-22.156-75.258-30.75-139.7-83.152-185.14-150.56-45.441-67.414-69.844-146.8-70.117-228.1h-178.71c0.58203 155.84 62.875 305.11 173.25 415.12 110.37 110.02 259.84 171.84 415.68 171.91 155.84 0.078125 305.37-61.582 415.86-171.49l132.77 130.62v-400.48h-396.89z" />
+                        </g>
+                    </svg>
+                    Weekly</span>
+                <span class="reason">Highly important only</span>
+            </div>
+            <div class="category very-expensive">
+                <span class="description">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" version="1.1"
+                        viewBox="0 0 1200 1200">
+                        <path
+                            d="m1044 342.67c-45.332-78.668-108-141.33-186.67-186.67-78.668-45.332-164-69.332-257.33-69.332s-178.67 22.668-257.33 69.332c-78.668 45.332-141.33 108-186.67 186.67-45.332 78.668-69.332 164-69.332 257.33s22.668 178.67 69.332 257.33c45.332 78.668 108 141.33 186.67 186.67 78.668 45.332 164 69.332 257.33 69.332s178.67-22.668 257.33-69.332c78.668-45.332 141.33-108 186.67-186.67 45.332-78.668 69.332-164 69.332-257.33s-22.664-178.67-69.332-257.33zm-364 597.33h-158.67v-158.67h158.67zm-12-229.33h-136l-28-449.33h192z"
+                            fill="#e22219" />
+                    </svg>
+                    Very expensive
+                </span>
+                <span class="frequency">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" version="1.1"
+                        viewBox="0 0 1200 1200">
+                        <g fill="#828282">
+                            <path
+                                d="m311.48 307.89c77.207-76.652 181.68-119.52 290.48-119.19s213.01 43.832 289.75 120.95c76.738 77.121 119.73 181.55 119.52 290.34h178.71c0.17578-156.17-61.652-306.03-171.9-416.64-110.25-110.61-259.9-172.93-416.07-173.27-156.18-0.33203-306.09 61.348-416.81 171.48l-135.64-135.64v409.09h409.09z" />
+                            <path
+                                d="m892.11 889.23c-57.125 57.848-130.14 97.43-209.78 113.73-79.648 16.305-162.34 8.5898-237.6-22.156-75.258-30.75-139.7-83.152-185.14-150.56-45.441-67.414-69.844-146.8-70.117-228.1h-178.71c0.58203 155.84 62.875 305.11 173.25 415.12 110.37 110.02 259.84 171.84 415.68 171.91 155.84 0.078125 305.37-61.582 415.86-171.49l132.77 130.62v-400.48h-396.89z" />
+                        </g>
+                    </svg>
+                    Rarely</span>
+                <span class="reason">Extreme importance only</span>
+            </div>
+        </div>
+
+        <header>
+            <a href="https://cloudnative.ly/relative-meeting-cost-1cd4d003ea58">Relative Meeting Cost</a> explained
+        </header>
+
+    </main>
+
+    <script>
+        const form = document.querySelector("form");
+        if (!form) alert("Missing input form");
+        form.addEventListener("keyup", compute);
+        form.addEventListener("change", compute);
+        form.addEventListener("submit", e => e.preventDefault())
+        form.addEventListener("click", handleClick);
+
+        function handleClick(e) {
+            if (e.target.tagName !== "BUTTON") return;
+
+            const participantsInput = form.querySelector("input[name=participants]");
+            if (!(participantsInput))
+                return view({ err: "An unknown error occurred" });
+
+            const op = e.target.classList.contains("subtract") ? -1 : e.target.classList.contains("add") ? 1 : 0;
+            participantsInput.value = Number(participantsInput.value) + op;
+
+            compute();
+
+        }
+
+        function compute() {
+
+            const lengthInput = form.querySelector("input[name=length]:checked");
+            const participantsInput = form.querySelector("input[name=participants]");
+
+            if (!(participantsInput))
+                return view({ err: "An unknown error occurred" });
+
+            const length = lengthInput && lengthInput.value;
+            const participants = participantsInput.value;
+            if (!(length && participants))
+                return view({});
+
+            if (!form.checkValidity())
+                return view({ err: "Choose at least 2 people" })
+
+            view({ cost: length * participants });
+        }
+        const results = document.querySelector(".results");
+        if (!results) alert("Missing results element");
+
+        function view(model) {
+
+            const errorElement = form.querySelector(".error");
+
+            const costElement = results.querySelector(".cost");
+            const classificationElement = results.querySelector(".classification");
+            const pointerElement = results.querySelector(".pointer");
+
+            errorElement.textContent = model.err || "";
+            if (model.err && !form.classList.contains("error"))
+                form.classList.add("error");
+            else if (!model.err)
+                while (form.classList.contains("error"))
+                    form.classList.remove("error");
+
+            costElement.textContent = model.cost || "";
+
+            const { classification, text, position } = classify(model.cost);
+            classificationElement.textContent = text
+
+            results.classList = "results";
+            if (classification) results.classList.add(classification);
+
+            const topCategory = results.querySelector(".category");
+            const bottomCategory = results.querySelector(".category.very-expensive");
+
+            const scaleTop = topCategory.offsetTop;
+            const scaleBottom = bottomCategory.offsetTop + bottomCategory.offsetHeight;
+            const scaleHeight = scaleBottom - scaleTop;
+
+            const pointerHeight = pointerElement.offsetHeight;
+            const pointerTop = ((position / 100) * scaleHeight) + scaleTop - (pointerHeight / 2);
+
+            const percentagePointerTop = 100 * pointerTop / results.offsetHeight;
+            pointerElement.style.top = `${percentagePointerTop}%`;
+
+        }
+
+
+        function classify(cost) {
+            const [classification, text] =
+                !cost ?
+                    ["", ""] :
+                    cost < 15 ?
+                        ["ok", "Ok"] :
+                        cost < 30 ?
+                            ["expensive", "Expensive"] :
+                            ["very-expensive", "Very expensive"];
+            const position = Math.min(100, 100 * (cost / 45));
+            return { classification, text, position };
+        }
+
+    </script>
+</body>
+
+</html>
